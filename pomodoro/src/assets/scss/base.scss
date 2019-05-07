@@ -105,8 +105,22 @@ button{
 	
 	@include transit((background-color: $foreground, color: $background));
 	
+	
 	&.beep {
 		margin-bottom: 2px;
+	}
+	
+	svg {
+		height: .86em;
+		width: .86em;
+		transition: fill .3s ease;
+	}
+	
+	&:focus,
+	&:hover {
+		svg {
+			fill: $background;
+		}
 	}
 }
 #clear {
