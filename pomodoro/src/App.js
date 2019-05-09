@@ -208,7 +208,7 @@ class Settings extends Component {
 	}
 	render() {
 		return (
-			<Fragment>
+		
 			<form className="row settings" aria-labelledby="settings-heading">
 				<Row classes="length-controls">
 					<Column>
@@ -237,33 +237,21 @@ class Settings extends Component {
 					</Column>
 				</Row>
 			</form>
-			<Section ID="progress" ariaLabelledBy="timer-heading">
-				<h2 id="timer-heading">Timer</h2>
-				<Row classes="timeholder">
-					<Column>
-						<Button isTextVisible={true} ariaControls="timer-container" text="Start timer" />
-						<Button isTextVisible={true} text="Clear timer" />
-					</Column>
-				</Row>
-				<Row id="timer-container">
-				</Row>
-			</Section>
-			</Fragment>
 			
 		);
 	}
 }
 function Section (props) {
-		return (
-		<Section id={props.ID} aria-labelledby={props.ariaLabelledBy}>
+	return (
+		<section id={props.ID} aria-labelledby={props.ariaLabelledBy}>
 			{props.children}
-		</Section>	
-	)
+		</section>	
+	);
 }
 class Checkbox extends Component {
 	
 }
-class Timer extends Component {
+class PomodoroTimer extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
@@ -285,16 +273,48 @@ class Timer extends Component {
 			<main id="timer">
 				<h1>Pomodoro Timer</h1>
 				<Settings />
-				
+				<Timer />
 			</main>
 		);
 		
 	}
 }
+
+class Timer extends Component {
+	render() {
+		return (
+			<Section ID="progress" ariaLabelledBy="timer-heading">
+				<h2 id="timer-heading">Timer</h2>
+				<Row>
+					<Column>
+						<Button isTextVisible={true} ariaControls="timer-container" text="Start timer" />
+						<Button isTextVisible={true} text="Clear timer" />
+					</Column>
+				</Row>
+				<Row id="timer-container">
+					<Countdown timeRemaining={'00:25:00'} />
+					
+				</Row>
+			</Section>
+		
+			
+		)
+	}
+}
+class Countdown extends Component {
+	render() {
+		
+		return (
+			<div id="count" role="timer" aria-live="off">
+				{this.props.timeRemaining}
+			</div>	
+		)
+	}
+}
 function App() {
 	return (
 		<div className="container flex-container">
-			<Timer />
+			<PomodoroTimer />
 		</div>
 	);
 }
