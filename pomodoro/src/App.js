@@ -1,12 +1,14 @@
 import React, {Component, Fragment} from 'react';
-import logo from './logo.svg';
+
 import './assets/scss/base.scss';
 //import 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css';
 
 class Row extends Component {
 	render() {
+		var hasID = (this.props.id !== undefined && this.props.id !== '');
 		return (
-			<div className={'row ' + this.props.classes} >
+			<div className={'row ' + this.props.classes} 
+			{...(hasID && { id: this.props.id})} >
 				{this.props.children}
 			</div>
 		);
@@ -33,6 +35,8 @@ class LengthControl extends Component {
 	}
 	
 	render() {
+		//<Input fieldName={this.props.fieldID} fieldID={this.props.fieldID} fieldType="number" includeLabel={false} max={this.props.max} />
+		// <input name={this.props.fieldName} id={this.props.fieldID} type="number" min="1" max={this.props.max} />
 		var periodNameLower = this.props.periodName.toLowerCase();
 		return (
 			<Fragment>
@@ -40,7 +44,8 @@ class LengthControl extends Component {
 				<div className="container">
 					<div className="wrap">
 						<CellContainer classes="">
-							<input name={this.props.fieldName} id={this.props.fieldID} type="number" min="1" max={this.props.max} />
+							<Input fieldName={this.props.fieldName} fieldID={this.props.fieldID} fieldType="number" includeLabel={false} max={this.props.max} />
+							
 							
 						</CellContainer>
 						<CellContainer classes="buttons">
@@ -66,10 +71,12 @@ class LengthControl extends Component {
 		);
 	}
 }
+/*
 const icons = {
 	plus: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M256 144V32c0-17.673 14.327-32 32-32s32 14.327 32 32v112h-64zm112 16H16c-8.837 0-16 7.163-16 16v32c0 8.837 7.163 16 16 16h16v32c0 77.406 54.969 141.971 128 156.796V512h64v-99.204c73.031-14.825 128-79.39 128-156.796v-32h16c8.837 0 16-7.163 16-16v-32c0-8.837-7.163-16-16-16zm-240-16V32c0-17.673-14.327-32-32-32S64 14.327 64 32v112h64z"/></svg>,
 	minus: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M416 208H32c-17.67 0-32 14.33-32 32v32c0 17.67 14.33 32 32 32h384c17.67 0 32-14.33 32-32v-32c0-17.67-14.33-32-32-32z"/></svg>
 };
+*/
 
 class Icon extends Component {
 	constructor(props) {
@@ -88,9 +95,14 @@ class Icon extends Component {
 	}
 }
 class Input extends Component {
+	
 	render() {
-		var isNumber = (this.props.fieldType === 'number');
+		var isNumber = (this.props.fieldType === 'number'),
+			label = (this.props.includeLabel) ? <label htmlFor={this.props.fieldID}>{this.props.labelText}</label> : "";
+		
 		return (
+			<Fragment>
+			{label}
 			<input 
 				type={this.props.fieldType} 
 				name={this.props.fieldName} 
@@ -102,25 +114,14 @@ class Input extends Component {
 						
 					})
 				} />
-		);
-	}
-}
-class PlusIcon extends Component {
-	render() {
-		return(
-			<Icon iconClass="fa-plus"/>
+				
+			</Fragment>	
 		);
 	}
 }
 
-class MinusIcon extends Component {
-	render() {
-		return(
-			<Icon iconClass="fa-minus"/>
-		);
-	}
-}
 class Button extends Component {
+/*
 	constructor(props) {
 		super(props);
 		
@@ -128,8 +129,11 @@ class Button extends Component {
 		
 		
 	}
+*/
 	render() {
 		var icon = this.props.icon,
+			ariaDescribedBy = this.props.ariaDescribedBy,
+			hasAriaDescribedBy = (ariaDescribedBy !== undefined && ariaDescribedBy != ''),
 			isTextVisible = (this.props.isTextVisible === undefined) ? true : this.props.isTextVisible,
 			ariaControls = this.props.ariaControls,
 			hasAriaControls = (ariaControls !== undefined && ariaControls != '') ? true : false,
@@ -138,13 +142,31 @@ class Button extends Component {
 			
 			console.log(hasAriaControls);
 		return (
-			<button className={this.props.classes} type="button" {...(hasAriaControls && {'aria-controls': ariaControls})}>
+			<button 
+				className={this.props.classes} 
+				type="button" 
+				{...(hasAriaControls && {'aria-controls': ariaControls}) 
+					
+				}
+				{...(hasAriaDescribedBy && {'aria-describedby' : ariaDescribedBy})}
+			>
 				{icon}
 				{text}
 			</button>
 		);
 	}
 }
+/* 
+	A button containing visible text
+*/
+/*
+class TextButton extends Component {
+	render() {
+		<Button 
+		icon={this.props.icon} isTextVisible={true} text={this.props.text} hasAriaControls={this.props.hasAriaControls} />
+	}
+}
+*/
 
 function HiddenClass(props) {
 	return (
@@ -167,6 +189,9 @@ class Fieldset extends Component {
 		)
 	}
 }
+function Container(props) {
+	return (<div className="container">{props.children}</div>);
+}
 class Settings extends Component {
 	constructor(props) {
 		super(props);
@@ -183,6 +208,7 @@ class Settings extends Component {
 	}
 	render() {
 		return (
+			<Fragment>
 			<form className="row settings" aria-labelledby="settings-heading">
 				<Row classes="length-controls">
 					<Column>
@@ -195,13 +221,44 @@ class Settings extends Component {
 				<Row>
 					<Column>
 						<Fieldset legend="Audio">
-							
+							<Container>
+								<Input fieldType="checkbox" fieldID="mute-audio" includeLabel={true} labelText="" fieldName="muteAudio" labelText="Mute Audio (beep at the end of each session and break)" />
+							</Container>
+							<Container>
+								<Button text="Test Audio" isTextVisible={true} ariaDescribedBy="beep-text" />
+								<p id="beep-text">Plays beep once (even when muted)</p>
+							</Container>
 						</Fieldset>
+					</Column>
+					<Column>
+						
+						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgress" />
+						
 					</Column>
 				</Row>
 			</form>
+			<Section ID="progress" ariaLabelledBy="timer-heading">
+				<h2 id="timer-heading">Timer</h2>
+				<Row classes="timeholder">
+					<Column>
+						<Button isTextVisible={true} ariaControls="timer-container" text="Start timer" />
+						<Button isTextVisible={true} text="Clear timer" />
+					</Column>
+				</Row>
+				<Row id="timer-container">
+				</Row>
+			</Section>
+			</Fragment>
+			
 		);
 	}
+}
+function Section (props) {
+		return (
+		<Section id={props.ID} aria-labelledby={props.ariaLabelledBy}>
+			{props.children}
+		</Section>	
+	)
 }
 class Checkbox extends Component {
 	
