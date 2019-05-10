@@ -23,28 +23,52 @@ class Column extends Component {
 		)
 	}
 }
+function Error(props) {
+	return (
+		<p id={props.fieldID + '-error'}>{props.text}</p>
+	);
+}
 class LengthControl extends Component {
 	constructor(props) {
 		super(props);
 		
-		this.handleLengthChange = this.handleLengthChange.bind(this);
+		this.onChange = this.onChange.bind(this);
 	}
 	
-	handleLengthChange(event) {
-		this.props.handleLengthChange(event);
+	onChange(event) {
+		this.props.onChange(event);
 	}
 	
 	render() {
 		//<Input fieldName={this.props.fieldID} fieldID={this.props.fieldID} fieldType="number" includeLabel={false} max={this.props.max} />
 		// <input name={this.props.fieldName} id={this.props.fieldID} type="number" min="1" max={this.props.max} />
-		var periodNameLower = this.props.periodName.toLowerCase();
+		var max = this.props.max,
+			showError = this.props.lengthState.showError,
+			fieldID = this.props.fieldID,
+			periodNameLower = this.props.periodName.toLowerCase(),
+			error = (showError) ? <Error fieldID={fieldID} text={'Please enter a number between 1 and ' + max} /> : '';
 		return (
 			<Fragment>
 				<label htmlFor={this.props.fieldID}>{this.props.periodName + ' length (minutes)'}</label>
 				<div className="container">
 					<div className="wrap">
 						<CellContainer classes="">
-							<Input fieldName={this.props.fieldName} fieldID={this.props.fieldID} fieldType="number" includeLabel={false} max={this.props.max} />
+							<Input 
+								fieldName={this.props.fieldName} 
+								fieldID={this.props.fieldID} 
+								fieldType="number"
+								value={this.props.lengthState.value} 
+								includeLabel={false} 
+								max={max}
+								onChange={this.onChange}
+								{...
+									(showError && {
+										'aria-describedby': fieldID + '-error',
+										
+										
+									})
+								} 
+							/>
 							
 							
 						</CellContainer>
@@ -95,7 +119,14 @@ class Icon extends Component {
 	}
 }
 class Input extends Component {
-	
+	constructor(props) {
+		super(props);
+		
+		this.onChange = this.onChange.bind(this);
+	}
+	onChange(event) {
+		this.props.onChange(event);
+	}
 	render() {
 		var isNumber = (this.props.fieldType === 'number'),
 			label = (this.props.includeLabel) ? <label htmlFor={this.props.fieldID}>{this.props.labelText}</label> : "";
@@ -106,14 +137,25 @@ class Input extends Component {
 			<input 
 				type={this.props.fieldType} 
 				name={this.props.fieldName} 
-				id={this.props.fieldID}  
+				id={this.props.fieldID} 
+				onChange={this.onChange} 
 				{...
 					(isNumber && {
 						'min': 1,
-						max: this.props.max
+						max: this.props.max,
+						value: this.props.value,
+						onBlur: this.onChange
 						
 					})
-				} />
+				}
+				{...
+					(!isNumber && {
+						
+						onChange: this.onChange
+						
+					})
+				}
+				/>
 				
 			</Fragment>	
 		);
@@ -197,32 +239,44 @@ class Settings extends Component {
 		super(props);
 		
 		
-		this.handleLengthChange = this.handleLengthChange.bind(this);
-		this.handleCheckboxChange = this.handleCheckboxChange.bind(this);
-	}
-	handleLengthChange(event) {
+		this.onChange = this.onChange.bind(this);
 		
 	}
-	handleCheckboxChange(event) {
-		
+	onChange(event) {
+		this.props.onChange(event);
 	}
+
 	render() {
 		return (
 		
 			<form className="row settings" aria-labelledby="settings-heading">
 				<Row classes="length-controls">
 					<Column>
-						<LengthControl fieldID="brkNum" fieldName="breakLength" periodName="Break" max="60" />
+						<LengthControl 
+							fieldID="brkNum" 
+							fieldName="breakLength" 
+							periodName="Break"
+							onChange={this.onChange}
+							lengthState = {this.props.breakLength}
+							max={this.props.maxLengths['breakLength']} 
+						/>
 					</Column>
 					<Column>
-						<LengthControl fieldID="ssnNum" fieldName="sessionLength" periodName="Session" max="120" />
+						<LengthControl 
+							fieldID="ssnNum" 
+							fieldName="sessionLength" 
+							periodName="Session"
+							onChange={this.onChange} 
+							lengthState = {this.props.sessionLength}
+							max={this.props.maxLengths['sessionLength']}
+						/>
 					</Column>
 				</Row>
 				<Row>
 					<Column>
 						<Fieldset legend="Audio">
 							<Container>
-								<Input fieldType="checkbox" fieldID="mute-audio" includeLabel={true} labelText="" fieldName="muteAudio" labelText="Mute Audio (beep at the end of each session and break)" />
+								<Input fieldType="checkbox" fieldID="mute-audio" includeLabel={true} labelText="" fieldName="isMuted" labelText="Mute Audio (beep at the end of each session and break)" />
 							</Container>
 							<Container>
 								<Button text="Test Audio" isTextVisible={true} ariaDescribedBy="beep-text" />
@@ -232,7 +286,7 @@ class Settings extends Component {
 					</Column>
 					<Column>
 						
-						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgress" />
+						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgressBar" />
 						
 					</Column>
 				</Row>
@@ -255,24 +309,71 @@ class PomodoroTimer extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			breakLength: 5,
-			sessionLength: 25
+			breakLength: {value: 5, showError: false},
+			sessionLength: {value: 25, showError: false},
+			isBreak: false,
+			isPaused: true,
+			timeRemaining: 0,
+			isMuted: false,
+			showProgressBar: false
+			
 		}
-		this.handleLengthChange = this.handleLengthChange.bind(this);
-		this.handleCheckboxChange = this.handleCheckboxChange.bind(this);
+		this.handleChange = this.handleChange.bind(this);
+	
 	}
 
-	handleLengthChange(event) {
-		
+	handleChange(event) {
+		console.log(event);
+		// Field that changed
+		var field = event.target.closest('input'),
+			// Whether field is checkbox
+			isCheckbox = (field.type == 'checkbox'),
+			name = field.name,
+			// Checkbox has boolean value
+			value = (isCheckbox) ? field.checked : field.value,
+			// Value to set for state (length fields have two states stored as object properties)
+			stateValue = (isCheckbox) ? value : {};
+			
+		// Length fields blur: Check max length
+		if (!isCheckbox && event.type == 'blur') {
+			// Max length for this field
+			var maxLength = this.props.maxLengths[name],
+				// Should be at least 1 but less than the max
+				isValid = (value >= 1 && value <= maxLength);
+			// Invalid	
+			if (!isValid) {
+				// If less than one, set 1; if over max, set to max
+				value = (value < 0) ? 1 : maxLength;
+			}
+			stateValue = {
+				value: value,
+				showError: isValid
+			};
+		// Length fields change: Just update value	
+		} else if (!isCheckbox) {
+			stateValue = {
+				value: value
+			};
+		}
+		this.setState({
+			[name]: stateValue
+		});	
+			
 	}
 	handleCheckboxChange(event) {
-		
+		var field = event.target.closest('input');
 	}
 	render() {
 		return (
 			<main id="timer">
 				<h1>Pomodoro Timer</h1>
-				<Settings />
+				<Settings 
+					onChange={this.handleChange}
+					maxLengths={this.props.maxLengths}
+					sessionLength = {this.state.sessionLength}
+					breakLength = {this.state.breakLength}
+					handleChange
+				/>
 				<Timer />
 			</main>
 		);
@@ -312,9 +413,10 @@ class Countdown extends Component {
 	}
 }
 function App() {
+	const periodMaxLengths = {sessionLength: 120, breakLength: 60};
 	return (
 		<div className="container flex-container">
-			<PomodoroTimer />
+			<PomodoroTimer maxLengths={periodMaxLengths} />
 		</div>
 	);
 }
