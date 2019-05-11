@@ -1,6 +1,7 @@
 import React, {Component, Fragment} from 'react';
 
 import './assets/scss/base.scss';
+import beep from './assets/audio/freesound_pan14_tone-beep.mp3';
 //import 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css';
 
 class Row extends Component {
@@ -28,15 +29,34 @@ function Error(props) {
 		<p id={props.fieldID + '-error'}>{props.text}</p>
 	);
 }
+/* 
+	Length control (including input and buttons and label)
+	
+	To do: make it so input name and id are one prop/only use ID and not name
+*/
 class LengthControl extends Component {
 	constructor(props) {
 		super(props);
 		
 		this.onChange = this.onChange.bind(this);
+		this.onClick = this.onClick.bind(this);
 	}
 	
 	onChange(event) {
 		this.props.onChange(event);
+	}
+	
+	onClick(event) {
+		let button = event.target.closest('button'),
+			buttonField = button.getAttribute('aria-controls'),
+			className = button.className,
+			newValue = (className == 'plus') ? (this.props.lengthState.value + 1) : (this.props.lengthState.value - 1);
+		
+		if (newValue > 0 && newValue <= this.props.max) {
+			this.props.setLength(buttonField, newValue);
+		}
+			
+		
 	}
 	
 	render() {
@@ -46,6 +66,8 @@ class LengthControl extends Component {
 			showError = this.props.lengthState.showError,
 			fieldID = this.props.fieldID,
 			periodNameLower = this.props.periodName.toLowerCase(),
+			isMax = (this.props.lengthState.value == max),
+			isMin = (this.props.lengthState.value == 1), 
 			error = (showError) ? <Error fieldID={fieldID} text={'Please enter a number between 1 and ' + max} /> : '';
 		return (
 			<Fragment>
@@ -79,12 +101,16 @@ class LengthControl extends Component {
 								icon={<Icon iconSlug="plus" />} 
 								text={"Subtract minute from " + periodNameLower} 
 								ariaControls={this.props.fieldID}
+								isDisabled={isMax}
+								onClick={this.onClick}
 							/ >
 							<Button 
-								classes="plus" 
+								classes="minus" 
+								isDisabled={isMin}
 								icon={<Icon iconSlug="minus" />} 
 								text={"Add minute to " + periodNameLower} 
 								ariaControls={this.props.fieldID}
+								onClick={this.onClick}
 							/ >	
 						</CellContainer>	
 						
@@ -129,6 +155,7 @@ class Input extends Component {
 	}
 	render() {
 		var isNumber = (this.props.fieldType === 'number'),
+			hasChangeFunction = (this.props.onChange !== undefined),
 			label = (this.props.includeLabel) ? <label htmlFor={this.props.fieldID}>{this.props.labelText}</label> : "";
 		
 		return (
@@ -138,18 +165,19 @@ class Input extends Component {
 				type={this.props.fieldType} 
 				name={this.props.fieldName} 
 				id={this.props.fieldID} 
-				onChange={this.onChange} 
+				
 				{...
 					(isNumber && {
 						'min': 1,
 						max: this.props.max,
 						value: this.props.value,
 						onBlur: this.onChange
+					
 						
 					})
 				}
 				{...
-					(!isNumber && {
+					((isNumber || hasChangeFunction) && {
 						
 						onChange: this.onChange
 						
@@ -172,8 +200,12 @@ class Button extends Component {
 		
 	}
 */
+	// This is rendering when checkbox changes and shouldn't be probably
+	// If possible only want to rerender if state (disabled) changes
 	render() {
+		console.log('render button');
 		var icon = this.props.icon,
+			hasClick = (this.props.onClick !== undefined && this.props.onClick != ''),
 			ariaDescribedBy = this.props.ariaDescribedBy,
 			hasAriaDescribedBy = (ariaDescribedBy !== undefined && ariaDescribedBy != ''),
 			isTextVisible = (this.props.isTextVisible === undefined) ? true : this.props.isTextVisible,
@@ -182,7 +214,6 @@ class Button extends Component {
 			// If there's an icon, use hidden text
 			text = (this.props.isTextVisible) ? this.props.text : <HiddenClass text={this.props.text} />;
 			
-			console.log(hasAriaControls);
 		return (
 			<button 
 				className={this.props.classes} 
@@ -191,6 +222,8 @@ class Button extends Component {
 					
 				}
 				{...(hasAriaDescribedBy && {'aria-describedby' : ariaDescribedBy})}
+				{...(hasClick && {onClick: this.props.onClick})}
+				{...(this.props.isDisabled && {'disabled':'disabled'})}
 			>
 				{icon}
 				{text}
@@ -247,26 +280,29 @@ class Settings extends Component {
 	}
 
 	render() {
+		console.log(this.props.onAudioClick);
 		return (
 		
 			<form className="row settings" aria-labelledby="settings-heading">
 				<Row classes="length-controls">
 					<Column>
 						<LengthControl 
-							fieldID="brkNum" 
+							fieldID="breakLength" 
 							fieldName="breakLength" 
 							periodName="Break"
 							onChange={this.onChange}
+							setLength={this.props.setLength}
 							lengthState = {this.props.breakLength}
 							max={this.props.maxLengths['breakLength']} 
 						/>
 					</Column>
 					<Column>
 						<LengthControl 
-							fieldID="ssnNum" 
+							fieldID="sessionLength" 
 							fieldName="sessionLength" 
 							periodName="Session"
-							onChange={this.onChange} 
+							onChange={this.onChange}
+							setLength={this.props.setLength}
 							lengthState = {this.props.sessionLength}
 							max={this.props.maxLengths['sessionLength']}
 						/>
@@ -276,17 +312,17 @@ class Settings extends Component {
 					<Column>
 						<Fieldset legend="Audio">
 							<Container>
-								<Input fieldType="checkbox" fieldID="mute-audio" includeLabel={true} labelText="" fieldName="isMuted" labelText="Mute Audio (beep at the end of each session and break)" />
+								<Input fieldType="checkbox" fieldID="mute-audio" includeLabel={true} labelText="" fieldName="isMuted" labelText="Mute Audio (beep at the end of each session and break)" onChange={this.onChange} />
 							</Container>
 							<Container>
-								<Button text="Test Audio" isTextVisible={true} ariaDescribedBy="beep-text" />
+								<Button text="Test Audio" isTextVisible={true} ariaDescribedBy="beep-text" onClick={this.props.onAudioClick} />
 								<p id="beep-text">Plays beep once (even when muted)</p>
 							</Container>
 						</Fieldset>
 					</Column>
 					<Column>
 						
-						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgressBar" />
+						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgressBar" onChange={this.onChange} />
 						
 					</Column>
 				</Row>
@@ -318,12 +354,22 @@ class PomodoroTimer extends Component {
 			showProgressBar: false
 			
 		}
+		this.audio = React.createRef();
 		this.handleChange = this.handleChange.bind(this);
-	
+		this.setLength = this.setLength.bind(this);
+		this.playAudio = this.playAudio.bind(this);
+	}
+	/* 
+		Set length of a period
+	*/
+	setLength(period, value) {
+		this.setState({
+			[period]: {value:value}
+		});
 	}
 
 	handleChange(event) {
-		console.log(event);
+		
 		// Field that changed
 		var field = event.target.closest('input'),
 			// Whether field is checkbox
@@ -349,7 +395,7 @@ class PomodoroTimer extends Component {
 				value: value,
 				showError: isValid
 			};
-		// Length fields change: Just update value	
+		// Length fields change: Just update value, wait for blur to	
 		} else if (!isCheckbox) {
 			stateValue = {
 				value: value
@@ -363,16 +409,25 @@ class PomodoroTimer extends Component {
 	handleCheckboxChange(event) {
 		var field = event.target.closest('input');
 	}
+	playAudio(bypassMute) {
+		bypassMute = (bypassMute === undefined) ? false : bypassMute;
+		if (!this.state.isMuted || bypassMute) {
+			console.log(this.audio);
+			this.audio.current.play();
+		}
+	}
 	render() {
 		return (
 			<main id="timer">
+				<Audio ID="beep" fileName={beep} ref={this.audio} />
 				<h1>Pomodoro Timer</h1>
 				<Settings 
 					onChange={this.handleChange}
 					maxLengths={this.props.maxLengths}
 					sessionLength = {this.state.sessionLength}
 					breakLength = {this.state.breakLength}
-					handleChange
+					setLength={this.setLength}
+					onAudioClick={this.playAudio}
 				/>
 				<Timer />
 			</main>
@@ -380,7 +435,32 @@ class PomodoroTimer extends Component {
 		
 	}
 }
-
+// Ref to its own dom node
+// Then in parent ref to this
+class Audio extends Component {
+	constructor(props) {
+		super(props);
+		this.audioRef = React.createRef();
+		this.play = this.play.bind(this);
+	}
+	
+	play() {
+		console.log(this.audioRef);
+		this.audioRef.current.play();
+	}
+	render() {
+		return (
+			<audio id={this.props.ID} ref={this.audioRef}>
+				<source src={this.props.fileName} type="audio/mpeg" />
+			</audio>	
+		);
+	}
+}
+/* 
+	<audio id="beep">
+		<source src="assets/audio/freesound_pan14_tone-beep.mp3" type="audio/mpeg">
+	</audio>
+*/
 class Timer extends Component {
 	render() {
 		return (
