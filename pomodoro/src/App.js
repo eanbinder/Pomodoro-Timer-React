@@ -347,9 +347,6 @@ class PomodoroTimer extends Component {
 		this.state = {
 			breakLength: {value: 5, showError: false},
 			sessionLength: {value: 25, showError: false},
-			isBreak: false,
-			isPaused: true,
-			timeRemaining: 0,
 			isMuted: false,
 			showProgressBar: false
 			
@@ -424,12 +421,18 @@ class PomodoroTimer extends Component {
 				<Settings 
 					onChange={this.handleChange}
 					maxLengths={this.props.maxLengths}
-					sessionLength = {this.state.sessionLength}
-					breakLength = {this.state.breakLength}
+					sessionLength={this.state.sessionLength}
+					breakLength={this.state.breakLength}
 					setLength={this.setLength}
 					onAudioClick={this.playAudio}
 				/>
-				<Timer />
+				<Timer
+					sessionLength={this.state.sessionLength.value}
+					breakLength={this.state.breakLength.value}	
+					isMuted={this.state.isMuted}
+					showProgressBar={this.state.showProgressBar}
+								
+				/>
 			</main>
 		);
 		
@@ -462,33 +465,398 @@ class Audio extends Component {
 	</audio>
 */
 class Timer extends Component {
+	
+	constructor(props) {
+		super(props);
+		this.state = {
+			isBreak: false,
+			isPaused: true,
+			intervalID: 0,
+			isTestMode: false,
+			totalTime: 0,
+			hasStarted: false,
+			timeRemaining: {}
+		};
+		
+		
+		this.getEndTime = this.getEndTime.bind(this);
+		this.playPause = this.playPause.bind(this);
+		this.clear = this.clear.bind(this);
+		this.update = this.update.bind(this);
+		this.start = this.start.bind(this);
+		
+		this.updateTotal = this.updateTotal.bind(this);
+		this.clear = this.clear.bind(this);
+		this.stop = this.stop.bind(this);
+		this.getTimeRemaining = this.getTimeRemaining.bind(this);
+		
+		// End time: Will need to be updated right away, so make it an instance property and not state
+		this.endTime = this.getEndTime(false);
+		// Time left
+		this.state.timeRemaining = this.getTimeRemaining();
+		
+	}
+	/* 
+		pom.addMinutes
+		
+		Adds the given number of minutes to the current date and returns that date object (representing m minutes from now)
+		
+		@param: m (number): How many minutes in the future
+	*/
+	addMinutes(m){
+		//adds minutes m to get an end Date
+		 var potato = new Date();
+		 return new Date(potato.getTime() + (m * 60000));
+	}
+	/* 
+		pom.timer.addSeconds
+		
+		Adds the given number of seconds to the current date and returns that date object (representing s seconds from now)
+		
+		@param: s (number): How many seconds in the future
+	*/
+	addSeconds(s){
+		/* adds seconds s to date: Used during
+		testing so I don't have to sit through
+		a full minute, keeping it around in case
+		I need it later*/
+		var owl = new Date();
+		return new Date(owl.getTime() +(s* 1000));
+	}
+/* 
+		pom.timer.getNewTime
+		
+		@param: t (number) time in mS to add to the current date
+		@return: Date object representing t milliseconds from now
+	*/
+	getNewTime(t){
+		
+	
+		var q = new Date();
+	 // console.log("gettime: " + q.getTime());
+		return new Date(q.getTime()+ t);
+		
+	}
+	getEndTime(fromPause){
+		fromPause = (fromPause === undefined) ? false : fromPause;
+		//Determines what time the countdown will end
+		//based on fromPause and isBreak
+		var text;
+		var end;
+		if (fromPause){
+			console.log('fromPause');
+			// Use the time left when the user paused to get the new end time
+			end = this.getNewTime(this.state.timeRemaining.total);
+			this.setState({fromPause:false});
+		} else {
+			if (!this.state.isBreak){
+				text = "Session";
+				
+				// Get a date object representing a session length in the future
+				end = this.addMinutes(this.props.sessionLength);
+				// Test mode: just do 8 second session
+				if (this.state.isTestMode) {
+					end = this.addSeconds(8);
+				}
+				
+			} else {
+				text = "Break";
+				
+				// Get a date object representing a session length in the future
+				end = this.addMinutes(this.props.breakLength);
+				// Test mode: just do 6 second break
+				if (this.state.isTestMode) {
+					end = this.addSeconds(6);
+				}
+			}
+		}
+		
+		
+		return end;
+	}
+	playPause(event) {
+		console.log(this.state);
+		// Button clicked (can only be one button but this is safer if there's ever a functionality change)
+			var button = event.target.closest('button'),
+				// Text for play/pause button
+				buttonText = (this.state.isPaused) ? 'Pause timer' : 'Start timer';
+				
+			console.log(buttonText);
+			//Click play: Start timer
+			if (this.state.isPaused){
+				console.log('play');
+				//var newTime = this.getEndTime(true);
+				this.endTime = this.getEndTime(true);
+			
+				// NEED TO REWORK THIS since setState is asyncronous and I need to know right away what the new time is we're counting down to
+				this.setState({hasStarted: true});
+				
+				// Update globals for whether this is paused//time to end this session or break
+				
+				
+				// Update total amount of time counting to
+				this.updateTotal();
+				// Start timer
+				this.start();
+				// Show clear button
+				//jQuery('#clear').addClass('show');
+			// Click pause: pause timer	
+			} else {
+				
+				// If the length of the period (session or break) the timer is in has changed since this period started
+				// use the updated period length when resuming instead of resuming from pause
+				//pom.fromPause = (pom.currentLengthModified) ? false : true;
+				// Stop timer
+				this.stop();
+				
+			}
+			// Change paused state
+			this.setState({
+				isPaused: !this.state.isPaused,
+				
+			});
+			// Reset
+			//pom.currentLengthModified = false;
+			console.log(this.state);
+	}
+	
+	stop() {
+		console.log('stop');
+		this.setState({isPaused: true});
+		
+		clearInterval(this.state.intervalID);
+	}
+
+	/* 
+		pom.timer.start()
+		
+		Starts timer 
+	*/
+	start() {
+		console.log('start');
+		// Update the timer with the default value
+		this.update();
+		
+		var newInterval = setInterval(this.update,1000);
+	
+		// Count down to the end of the session (or break): Save ID returned by setInterval so we can clear it later
+		this.setState({
+			intervalID: newInterval
+		});
+		
+
+	}
+	/* 
+		pom.timer.update()
+		
+		Updates timer from globals set
+	*/
+	update(){
+		console.log('update');
+/*
+		var t = 0;
+		if (pom.timer.endTime === 0){
+			t = 0; 
+		} else {
+*/
+			var t = this.getTimeRemaining(this.endTime);
+			//console.log(end);
+		
+			// Total time left in mS
+			var f = t.total;
+			//f is milliseconds remaining
+			//console.log("totalTime: " + pom.timer.totalTime);
+			//b is the percentage time elapsed
+			
+			//pom.timer.clock.html(hours + minutes + seconds);
+			//Set current time remaining in ms 
+			this.setState({
+				timeRemaining: t
+			});
+			
+			
+	
+			// Update Progress bar
+			//pom.timer.setProgress(percentageTimeElapsed);
+			
+			
+			
+			
+			if(t.total <= 0){
+				console.log('switch');
+				
+				//Clock shows 0 and then stops
+				
+				clearInterval(this.state.intervalID);
+				// If current period was modified (break length changed during break): Reset
+				//pom.currentLengthModified = false;
+				
+				
+				this.updateTotal();
+				this.setState({
+					isBreak: !this.state.isBreak
+					
+				});
+				this.endTime = this.getEndTime();
+				
+				this.update();
+			} else if (t.total <= 1000) {
+				//pom.timer.playAudio();
+			}
+// 			} 
+		
+			
+	}
+
+	//Returns total time being counted to in ms
+	updateTotal(){
+		// Default: Use total time last set
+		var num = this.state.totalTime;
+		// This session/break should resume from pause
+		if (this.fromPause){
+			//console.log('fromPause');
+			// When this period ends, need to reset total time (going from session to break or vice versa)
+			this.setState({fromPause: false});
+			
+		// Going to a new session or break or starting timer after length of current period has been modified	
+		} else {
+			
+			if (!this.state.isBreak){
+				num = this.props.sessionLength * 60000;
+				// Test mode: just do 8 second session
+				if (this.state.isTestMode) {
+					num = 8000;
+				}
+				
+			} else {
+				num = this.props.breakLength * 60000;
+				// Test mode: just do 6 second break
+				if (this.state.isTestMode) {
+					num = 6000;
+				}
+			 	
+			}
+		}
+		
+		this.setState({totalTime: num});
+	}
+	clear(event) {
+		// Stop the timer
+			this.stop();
+			// Don't show clear button
+			this.setState({hasStarted: false});
+			// Clear visible countdown
+			//jQuery("#timelabel, #count").html('');
+			// Hide the clear button since there's nothing to clear
+			//jQuery('#clear').removeClass('show');
+			
+			//pom.timer.setProgress(0);
+
+	}
+	getTimeRemaining() {
+		let end = this.endTime;
+		// New date
+		var d = new Date(),
+			// End date and current date in mS
+			endDate = end.getTime(),
+			curDate = d.getTime(),
+			// Time left in mS
+			totalTimeLeft = endDate - curDate,
+			// Get seconds, minutes, and hours left
+			seconds = Math.floor( (totalTimeLeft/1000) % 60),
+			minutes = Math.floor( (totalTimeLeft/1000/60) % 60),
+			hours = Math.floor( (totalTimeLeft/(1000*60*60)) % 24);
+			
+		
+			 
+			return {
+				'total' : totalTimeLeft,
+				'hours' : hours,
+				'minutes': minutes,
+				'seconds' : seconds,
+			};
+	}
 	render() {
+		let progressBar = (this.props.showProgressBar) ? <ProgressBar percentageTimeElapsed="20" /> : '',
+			playPauseText = (this.state.isPaused) ? 'Start timer' : 'Pause timer',
+			// Need a default end time to stop this breaking on page load
+			timeRemaining = this.getTimeRemaining(),
+			currentPeriod = (this.state.isBreak) ? 'Break' : 'Session',
+			// Whether timer was started at some point (could be paused, but should show time and clear button)
+			hasStarted = this.state.hasStarted,
+			time = '',
+			// Clear button
+			clearButton = '';
+			
+			if (this.state.hasStarted) {
+				clearButton = <Button 
+								isTextVisible={true} 
+								text="Clear timer" 
+								onClick={this.clear}
+							/>;
+				time = <Row id="timer-container">
+					<div id="timelabel">{currentPeriod}</div>
+					<Countdown 
+						timeRemaining={this.state.timeRemaining} 
+						totalTime={this.state.totalTime} 
+						showProgressBar={this.props.showProgressBar}
+					/>
+					
+				</Row>;			
+							
+			}
 		return (
 			<Section ID="progress" ariaLabelledBy="timer-heading">
 				<h2 id="timer-heading">Timer</h2>
 				<Row>
 					<Column>
-						<Button isTextVisible={true} ariaControls="timer-container" text="Start timer" />
-						<Button isTextVisible={true} text="Clear timer" />
+						<Button 
+							isTextVisible={true} 
+							ariaControls="timer-container" 
+							text={playPauseText}
+							onClick={this.playPause}
+						/>
+						{clearButton}
 					</Column>
 				</Row>
-				<Row id="timer-container">
-					<Countdown timeRemaining={'00:25:00'} />
-					
-				</Row>
+				{time}
 			</Section>
 		
 			
 		)
 	}
 }
+class ProgressBar extends Component {
+	render() {
+		let percentageTime = this.props.percentageTimeElapsed + '%';
+		return (
+			<Row id="perc">
+				<p id="progress-text" className="vh" aria-live="off">{percentageTime + ' of time passed'}</p>
+				<div id="empty" aria-hidden="true">
+					<div id="bar" style={{width: percentageTime}}></div>
+				</div>
+			</Row>
+		);
+	}
+}
 class Countdown extends Component {
 	render() {
-		
+		var t = this.props.timeRemaining,
+			f = t.total,
+			percentageTimeElapsed = ((this.props.totalTime - f)/this.props.totalTime) * 100,
+			hours = ('0' + t.hours + ':').slice(-2),
+			minutes = ('0' + t.minutes + ':').slice(1),
+			seconds = ('0' + t.seconds).slice(-2),
+			progressBar = (this.props.showProgressBar) ?  <ProgressBar percentageTimeElapsed={percentageTimeElapsed} /> : '';
+			//Update countdown
+			console.log(percentageTimeElapsed);
 		return (
-			<div id="count" role="timer" aria-live="off">
-				{this.props.timeRemaining}
-			</div>	
+			<Fragment>
+				<div id="count" role="timer" aria-live="off">
+					{hours + minutes + seconds}
+				</div>
+				{progressBar}	
+			</Fragment>	
 		)
 	}
 }
