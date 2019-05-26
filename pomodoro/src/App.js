@@ -33,6 +33,23 @@ function Error(props) {
 	Length control (including input and buttons and label)
 	
 	To do: make it so input name and id are one prop/only use ID and not name
+
+	Props
+	• fieldID (string): ID of the number field
+	• fieldName (string): Name of the number field
+	• periodName (string): Name of the period of time this applies to ("Session" or "Break", used in label
+	• onChange (function): function to call on change and blur for the number fields, though it should pay attention
+		to the event type--update the single source of state on change, and validate on blur
+	• setLength (function): Function to change the length state of a higher level component when increment/decrement buttons
+		clicked.	Must accept two params:
+		• fieldName (string): Name of the field to update (sessionLength or breakLength)
+		• value (number): The new value of the field
+	• lengthState (object): Current state of this control (lifted to higher level component and passed down as prop. Object 
+		properties:
+			• showError (boolean): Whether to show a validation error (user entered an invalid length)
+			• value (number): Current value of the field
+	• max (number): The maximum value allowed for this field			
+		 	 
 */
 class LengthControl extends Component {
 	constructor(props) {
@@ -144,6 +161,13 @@ class Icon extends Component {
 		);
 	}
 }
+/* 
+	Input component
+	
+	Works for different field types; currently used/tested with number inputs and radio buttons
+	
+	TODO: Use the same string for name and ID. No reason we need two different unique strings per input
+*/
 class Input extends Component {
 	constructor(props) {
 		super(props);
@@ -268,6 +292,24 @@ class Fieldset extends Component {
 function Container(props) {
 	return (<div className="container">{props.children}</div>);
 }
+/* 
+	Settings component: 
+	
+	Contains: Break/session length fields, audio-related fields/button, progress bar and test mode options
+	
+	Props:
+	• breakLength and sessionLength (number): Length of break and session respectively. Allow changes to input,
+		 while incrementing and decrementing when buttons clicked
+	• setLength (function): Used to update the state of each length control when buttons are clicked. Must accept two params:
+		• fieldName (string): Name of the field to update (sessionLength or breakLength)
+		• value (number): The new value of the field 	 
+	• onChange: Function to call on change for text fields and checkboxes, and on blur for text fields (should handle blur and
+		change somewhat differently for text fields--update state on change, and validate on blur)
+	• maxLengths (object): Keys should be the name of each field (sessionLength and breakLength) and each value should be the 
+		max allowable value for that field
+	• onAudioClick (function): Called when Test Audio button clicked (should play audio)
+		 	 	
+*/
 class Settings extends Component {
 	constructor(props) {
 		super(props);
@@ -362,9 +404,9 @@ class PomodoroTimer extends Component {
 	/* 
 		Set length of a period
 	*/
-	setLength(period, value) {
+	setLength(fieldName, value) {
 		this.setState({
-			[period]: {value:value}
+			[fieldName]: {value:value}
 		});
 		console.log('setLength');
 		console.log(this.state);
@@ -434,9 +476,9 @@ class PomodoroTimer extends Component {
 				<Timer
 					sessionLength={this.state.sessionLength.value}
 					breakLength={this.state.breakLength.value}	
-					isMuted={this.state.isMuted}
 					showProgressBar={this.state.showProgressBar}
 					isTestMode={this.state.isTestMode}
+					onNewPeriod={this.playAudio}
 								
 				/>
 			</main>
@@ -469,6 +511,23 @@ class Audio extends Component {
 	<audio id="beep">
 		<source src="assets/audio/freesound_pan14_tone-beep.mp3" type="audio/mpeg">
 	</audio>
+*/
+/* 
+	Timer
+	
+	Contains start/pause button, clear timer button, session or break text, progress bar
+	
+	Props:
+	• sessionLength (number): Current setting for session length (in minutes)
+	• breakLength (number): Current setting for break length (in minutes)
+	• showProgressBar (boolean): Whether to show the progress bar
+	• isTestMode (boolean): If true, overrides length fields and uses 8-second sessions/6-second breaks
+	• onNewPeriod (function): Called when session changes to break or vice versa (used to play audio)
+	
+	TODO:
+	• Fix bug with 60 seconds showing on timer start (e.g.00:25:60 with default settings)
+	• Fix bug with session/break length not changing when test mode turned off
+	• Try to get the session/break text to change right when the new sesion/break starts (and not at the end of the previous one)
 */
 class Timer extends Component {
 	
@@ -722,11 +781,9 @@ class Timer extends Component {
 				this.setState({
 					intervalID: newInterval
 				});
+				this.props.onNewPeriod();
 		
-			} else if (t.total <= 1000) {
-				//pom.timer.playAudio();
-			}
-// 			} 
+			} 
 		
 			
 	}
