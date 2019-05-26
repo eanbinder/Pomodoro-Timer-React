@@ -156,7 +156,8 @@ class Input extends Component {
 	render() {
 		var isNumber = (this.props.fieldType === 'number'),
 			hasChangeFunction = (this.props.onChange !== undefined),
-			label = (this.props.includeLabel) ? <label htmlFor={this.props.fieldID}>{this.props.labelText}</label> : "";
+			includeLabel = (this.props.includeLabel === undefined) ? true : this.props.includeLabel,
+			label = (includeLabel) ? <label htmlFor={this.props.fieldID}>{this.props.labelText}</label> : "";
 		
 		return (
 			<Fragment>
@@ -203,7 +204,7 @@ class Button extends Component {
 	// This is rendering when checkbox changes and shouldn't be probably
 	// If possible only want to rerender if state (disabled) changes
 	render() {
-		console.log('render button');
+		//console.log('render button');
 		var icon = this.props.icon,
 			hasClick = (this.props.onClick !== undefined && this.props.onClick != ''),
 			ariaDescribedBy = this.props.ariaDescribedBy,
@@ -323,6 +324,7 @@ class Settings extends Component {
 					<Column>
 						
 						<Input fieldType="checkbox" fieldID="show-progress" includeLabel={true} labelText="Show Progress Bar" fieldName="showProgressBar" onChange={this.onChange} />
+						<Input fieldType="checkbox" fieldID="test-mode" fieldName="isTestMode" labelText="Test mode (6 second break and 8 second session)" onChange={this.onChange} />
 						
 					</Column>
 				</Row>
@@ -348,7 +350,8 @@ class PomodoroTimer extends Component {
 			breakLength: {value: 5, showError: false},
 			sessionLength: {value: 25, showError: false},
 			isMuted: false,
-			showProgressBar: false
+			showProgressBar: false,
+			isTestMode: false
 			
 		}
 		this.audio = React.createRef();
@@ -363,6 +366,8 @@ class PomodoroTimer extends Component {
 		this.setState({
 			[period]: {value:value}
 		});
+		console.log('setLength');
+		console.log(this.state);
 	}
 
 	handleChange(event) {
@@ -431,6 +436,7 @@ class PomodoroTimer extends Component {
 					breakLength={this.state.breakLength.value}	
 					isMuted={this.state.isMuted}
 					showProgressBar={this.state.showProgressBar}
+					isTestMode={this.state.isTestMode}
 								
 				/>
 			</main>
@@ -468,12 +474,15 @@ class Timer extends Component {
 	
 	constructor(props) {
 		super(props);
+		this.getMillisecondsTotal = this.getMillisecondsTotal.bind(this);
+		
+		let totalTime = this.getMillisecondsTotal(false, false);
+		
 		this.state = {
 			isBreak: false,
 			isPaused: true,
 			intervalID: 0,
-			isTestMode: false,
-			totalTime: 0,
+			totalTime: totalTime,
 			hasStarted: false,
 			timeRemaining: {}
 		};
@@ -538,11 +547,14 @@ class Timer extends Component {
 		
 	}
 	getEndTime(fromPause){
+		console.log('getEndTime');
 		fromPause = (fromPause === undefined) ? false : fromPause;
 		//Determines what time the countdown will end
 		//based on fromPause and isBreak
 		var text;
 		var end;
+		console.log(this.state);
+		
 		if (fromPause){
 			console.log('fromPause');
 			// Use the time left when the user paused to get the new end time
@@ -555,7 +567,7 @@ class Timer extends Component {
 				// Get a date object representing a session length in the future
 				end = this.addMinutes(this.props.sessionLength);
 				// Test mode: just do 8 second session
-				if (this.state.isTestMode) {
+				if (this.props.isTestMode) {
 					end = this.addSeconds(8);
 				}
 				
@@ -565,16 +577,17 @@ class Timer extends Component {
 				// Get a date object representing a session length in the future
 				end = this.addMinutes(this.props.breakLength);
 				// Test mode: just do 6 second break
-				if (this.state.isTestMode) {
+				if (this.props.isTestMode) {
 					end = this.addSeconds(6);
 				}
 			}
 		}
-		
+			console.log(this.state);
 		
 		return end;
 	}
 	playPause(event) {
+		console.log('playpause');
 		console.log(this.state);
 		// Button clicked (can only be one button but this is safer if there's ever a functionality change)
 			var button = event.target.closest('button'),
@@ -582,11 +595,14 @@ class Timer extends Component {
 				buttonText = (this.state.isPaused) ? 'Pause timer' : 'Start timer';
 				
 			console.log(buttonText);
+			console.log(this.props);
 			//Click play: Start timer
 			if (this.state.isPaused){
 				console.log('play');
+				//let fromPause = (this.state.hasStarted) ? 
 				//var newTime = this.getEndTime(true);
-				this.endTime = this.getEndTime(true);
+				// If timer has been started, resume from pause, otherwise start new session
+				this.endTime = this.getEndTime(this.state.hasStarted);
 			
 				// NEED TO REWORK THIS since setState is asyncronous and I need to know right away what the new time is we're counting down to
 				this.setState({hasStarted: true});
@@ -652,7 +668,7 @@ class Timer extends Component {
 		Updates timer from globals set
 	*/
 	update(){
-		console.log('update');
+		//console.log('update');
 /*
 		var t = 0;
 		if (pom.timer.endTime === 0){
@@ -683,7 +699,7 @@ class Timer extends Component {
 			
 			
 			if(t.total <= 0){
-				console.log('switch');
+				//console.log('switch');
 				
 				//Clock shows 0 and then stops
 				
@@ -720,7 +736,8 @@ class Timer extends Component {
 			
 		// Going to a new session or break or starting timer after length of current period has been modified	
 		} else {
-			
+			num = this.getMillisecondsTotal(this.state.isBreak, this.props.isTestMode);
+/*
 			if (!this.state.isBreak){
 				num = this.props.sessionLength * 60000;
 				// Test mode: just do 8 second session
@@ -736,9 +753,19 @@ class Timer extends Component {
 				}
 			 	
 			}
+*/
 		}
 		
 		this.setState({totalTime: num});
+	}
+	getMillisecondsTotal(isBreak, isTestMode) {
+		let minutes = (isBreak) ? this.props.breakLength : this.props.sessionLength,
+			milliseconds = minutes * 60000;
+		if (isTestMode) {
+			milliseconds = (isBreak) ? 6000: 8000;
+		}
+		
+		return milliseconds;
 	}
 	clear(event) {
 		// Stop the timer
@@ -786,7 +813,8 @@ class Timer extends Component {
 			hasStarted = this.state.hasStarted,
 			time = '',
 			// Clear button
-			clearButton = '';
+			clearButton = '',
+			totalTime = this.getMillisecondsTotal(this.state.isBreak, false);
 			
 			if (this.state.hasStarted) {
 				clearButton = <Button 
@@ -849,7 +877,7 @@ class Countdown extends Component {
 			seconds = ('0' + t.seconds).slice(-2),
 			progressBar = (this.props.showProgressBar) ?  <ProgressBar percentageTimeElapsed={percentageTimeElapsed} /> : '';
 			//Update countdown
-			console.log(percentageTimeElapsed);
+//			console.log(percentageTimeElapsed);
 		return (
 			<Fragment>
 				<div id="count" role="timer" aria-live="off">
