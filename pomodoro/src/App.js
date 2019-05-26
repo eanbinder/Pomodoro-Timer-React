@@ -553,6 +553,7 @@ class Timer extends Component {
 		//based on fromPause and isBreak
 		var text;
 		var end;
+		console.log(new Date());
 		console.log(this.state);
 		
 		if (fromPause){
@@ -583,7 +584,7 @@ class Timer extends Component {
 			}
 		}
 			console.log(this.state);
-		
+		console.log(end);
 		return end;
 	}
 	playPause(event) {
@@ -677,7 +678,7 @@ class Timer extends Component {
 */
 			var t = this.getTimeRemaining(this.endTime);
 			//console.log(end);
-		
+		//console.log(t);
 			// Total time left in mS
 			var f = t.total;
 			//f is milliseconds remaining
@@ -690,19 +691,15 @@ class Timer extends Component {
 				timeRemaining: t
 			});
 			
-			
 	
 			// Update Progress bar
 			//pom.timer.setProgress(percentageTimeElapsed);
 			
 			
+			if(t.total < 0){
 			
-			
-			if(t.total <= 0){
-				//console.log('switch');
-				
 				//Clock shows 0 and then stops
-				
+				//this.update();
 				clearInterval(this.state.intervalID);
 				// If current period was modified (break length changed during break): Reset
 				//pom.currentLengthModified = false;
@@ -713,9 +710,19 @@ class Timer extends Component {
 					isBreak: !this.state.isBreak
 					
 				});
+				//this.update();
 				this.endTime = this.getEndTime();
+				// Want visible session/break text to change when the timer resets and not sooner
+				// Also refactor this
 				
-				this.update();
+					
+				var newInterval = setInterval(this.update,1000);
+			
+				// Count down to the end of the session (or break): Save ID returned by setInterval so we can clear it later
+				this.setState({
+					intervalID: newInterval
+				});
+		
 			} else if (t.total <= 1000) {
 				//pom.timer.playAudio();
 			}
@@ -790,11 +797,11 @@ class Timer extends Component {
 			// Time left in mS
 			totalTimeLeft = endDate - curDate,
 			// Get seconds, minutes, and hours left
-			seconds = Math.floor( (totalTimeLeft/1000) % 60),
-			minutes = Math.floor( (totalTimeLeft/1000/60) % 60),
-			hours = Math.floor( (totalTimeLeft/(1000*60*60)) % 24);
+			seconds = Math.round( (totalTimeLeft/1000) % 60),
+			minutes = Math.round( (totalTimeLeft/1000/60) % 60),
+			hours = Math.round( (totalTimeLeft/(1000*60*60)) % 24);
 			
-		
+			
 			 
 			return {
 				'total' : totalTimeLeft,
@@ -876,6 +883,7 @@ class Countdown extends Component {
 			minutes = ('0' + t.minutes + ':').slice(1),
 			seconds = ('0' + t.seconds).slice(-2),
 			progressBar = (this.props.showProgressBar) ?  <ProgressBar percentageTimeElapsed={percentageTimeElapsed} /> : '';
+			
 			//Update countdown
 //			console.log(percentageTimeElapsed);
 		return (
