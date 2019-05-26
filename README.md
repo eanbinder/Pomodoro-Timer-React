@@ -1,7 +1,7 @@
 # Pomodoro-Timer-React
 Pomodoro Timer in React
 
-##TODO
+## TODO
 * Use the same variable for input name and ID. No reason we need two different unique strings per input
 * Get session/break text to change when the new session/break starts and not when the previous one reaches 0
 * Fix bug with 60 seconds showing on timer start (e.g.00:25:60 with default settings)
